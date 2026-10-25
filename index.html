@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Lab 7 Assembly Buzzer</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Barlow+Semi+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one reading column, each lab section = explanation + a live instrument panel (scope screens stay dark like the real DSO-X) */
+:root{
+  --bg:#eceff3; --panel:#ffffff; --ink:#17212b; --muted:#56636f; --line:#d2d8df;
+  --accent:#1d5bb8; --accent-soft:#dfe8f7; --warn:#b4480f; --warn-soft:#fbe9df; --ok:#17803d;
+  --ch1:#a87b00; --ch2:#11804a;
+  --scr:#0a1017; --grid:#26323f; --grid2:#3a4858; --c1s:#f3d417; --c2s:#3ddc6f; --curs:#e8eef5; --hl:rgba(120,180,255,.20); --part:rgba(255,140,60,.22);
+  --f-display:"Barlow Semi Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e1319; --panel:#151c24; --ink:#e4e9ee; --muted:#97a3af; --line:#2a343f;
+  --accent:#74a9ff; --accent-soft:#1b2a40; --warn:#ff9a62; --warn-soft:#3a2216; --ok:#4fd27f;
+  --ch1:#f2cf4a; --ch2:#4fdc86; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1319; --panel:#151c24; --ink:#e4e9ee; --muted:#97a3af; --line:#2a343f;
+  --accent:#74a9ff; --accent-soft:#1b2a40; --warn:#ff9a62; --warn-soft:#3a2216; --ok:#4fd27f;
+  --ch1:#f2cf4a; --ch2:#4fdc86; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.6;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 64px}
+.wrap{max-width:920px;margin:0 auto}
+h1,h2,h3{font-family:var(--f-display);line-height:1.12;text-wrap:balance;margin:0}
+h1{font-size:clamp(2.2rem,6vw,3.4rem);font-weight:700;letter-spacing:-.01em}
+h2{font-size:clamp(1.6rem,4vw,2.1rem);font-weight:700}
+h3{font-size:1.25rem;font-weight:600}
+p{margin:0;max-width:68ch}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.eyebrow{font-family:var(--f-mono);font-size:.75rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+header.hero{padding-block:40px 24px;display:grid;gap:14px}
+.hero .lede{font-size:1.1rem;color:var(--muted)}
+nav.toc{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+nav.toc a{font-family:var(--f-mono);font-size:.8rem;text-decoration:none;color:var(--ink);border:1px solid var(--line);background:var(--panel);padding:6px 10px;border-radius:6px}
+nav.toc a:hover,nav.toc a:focus-visible{border-color:var(--accent);color:var(--accent)}
+section.lab{padding-block:40px 8px;border-top:1px solid var(--line);display:grid;gap:18px}
+.steps-tag{font-family:var(--f-mono);font-size:.78rem;color:var(--accent)}
+.stack{display:grid;gap:12px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:12px;min-width:0}
+.two{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:760px){.two{grid-template-columns:1fr}}
+canvas.scope{width:100%;aspect-ratio:10/8;display:block;border-radius:6px;background:var(--scr)}
+canvas.plot{width:100%;aspect-ratio:16/9;display:block}
+canvas.wide{width:100%;aspect-ratio:3/1;display:block;border-radius:6px;background:var(--scr)}
+.bezel{background:#1c232c;border-radius:10px;padding:10px;display:grid;gap:8px}
+.bezel .strip{display:flex;flex-wrap:wrap;gap:6px 14px;font-family:var(--f-mono);font-size:.78rem;color:#c9d3dd}
+.strip .c1{color:#f3d417}.strip .c2{color:#3ddc6f}
+.ctrls{display:flex;flex-wrap:wrap;gap:10px;align-items:end}
+.ctrls label{display:grid;gap:4px;font-size:.8rem;color:var(--muted);font-family:var(--f-mono)}
+select,input[type=number]{font:inherit;font-family:var(--f-mono);font-size:.9rem;padding:6px 8px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+button{font:inherit;font-size:.88rem;font-family:var(--f-mono);padding:7px 12px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+button:hover{border-color:var(--accent)}
+button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.on{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+button.key{background:#2b3440;color:#e7edf3;border-color:#3d4855}
+button.key.auto{background:#3b6fd1;border-color:#3b6fd1}
+.tabs{display:flex;flex-wrap:wrap;gap:6px}
+.readout{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-family:var(--f-mono);font-size:.88rem;font-variant-numeric:tabular-nums}
+.readout dt{color:var(--muted)}.readout dd{margin:0}
+.readout .hot{color:var(--accent);font-weight:600}
+.msg{font-size:.9rem;padding:10px 12px;border-radius:8px;background:var(--accent-soft)}
+.msg.warn{background:var(--warn-soft);color:var(--ink);border-left:3px solid var(--warn)}
+.why{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.why .panel h3{font-size:1.08rem}
+.why .panel p{font-size:.95rem}
+.formula{font-family:var(--f-mono);font-size:1.15rem;padding:10px 14px;background:var(--bg);border-radius:8px;border:1px dashed var(--line);overflow-x:auto}
+.tblwrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{font-family:var(--f-mono);font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+td.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right}
+tr.cur td{background:var(--accent-soft)}
+.freqs{display:flex;flex-wrap:wrap;gap:6px}
+.freqs button{padding:5px 9px;font-size:.8rem}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-family:var(--f-mono);font-size:.8rem;color:var(--muted)}
+.sw{display:inline-block;width:12px;height:3px;vertical-align:middle;margin-right:6px;border-radius:2px}
+svg text{font-family:var(--f-mono)}
+.schem .wire{stroke:var(--ink);stroke-width:2;fill:none}
+.schem .lbl{fill:var(--ink);font-size:11px}
+.schem .sub{fill:var(--muted);font-size:10px}
+.schem .p1{fill:var(--ch1);font-size:11px;font-weight:600}
+.schem .p2{fill:var(--ch2);font-size:11px;font-weight:600}
+.parts{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.part{display:grid;gap:4px;justify-items:start;text-align:left;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);font-family:var(--f-body);font-size:.85rem}
+.part.on{border-color:var(--accent);background:var(--accent-soft);color:var(--ink)}
+.part b{font-family:var(--f-mono);font-size:.8rem}
+.part svg{width:100%;height:40px}
+.detail{display:grid;gap:8px}
+ol.flow{margin:0;padding-left:1.3em;display:grid;gap:6px;max-width:68ch}
+.small{font-size:.86rem;color:var(--muted)}
+.pill{display:inline-block;font-family:var(--f-mono);font-size:.75rem;padding:2px 8px;border-radius:99px;background:var(--accent-soft);color:var(--accent)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+@media (prefers-reduced-motion: reduce){*{scroll-behavior:auto}}
+.labnav{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-family:var(--f-mono);font-size:.75rem;color:var(--muted)}
+.labnav a{color:var(--ink);text-decoration:none;border:1px solid var(--line);border-radius:99px;padding:3px 10px;background:var(--panel)}
+.labnav a[aria-current]{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px}
+.fcard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:grid;gap:8px;align-content:start;min-width:0}
+.fcard h3{font-size:1.05rem}
+.fcard .eq{font-family:var(--f-mono);font-size:1.12rem;padding:8px 10px;background:var(--bg);border-radius:6px;overflow-x:auto;white-space:pre}
+.fcard .when{font-size:.92rem}
+.fcard .vars{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:.85rem;margin:0}
+.fcard .vars dt{font-family:var(--f-mono);color:var(--accent)}
+.fcard .vars dd{margin:0;color:var(--muted)}
+.fcard .ex{font-size:.86rem;border-top:1px dashed var(--line);padding-top:8px}
+.fcard .ex b{font-family:var(--f-mono);font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-right:6px}
+.stepper{display:flex;flex-wrap:wrap;gap:6px}
+.stepper button{padding:5px 10px;font-size:.8rem}
+.qlist{margin:0;padding-left:1.3em;display:grid;gap:8px;max-width:72ch}
+.qlist li span{color:var(--muted);font-size:.9rem;display:block}
+.psu{background:#1c232c;border-radius:10px;padding:12px;display:grid;gap:8px;color:#d9e2ea;font-family:var(--f-mono)}
+.psu .lcd{background:#0d1a24;border-radius:6px;padding:10px 12px;display:grid;grid-template-columns:auto 1fr auto;gap:4px 12px;align-items:baseline}
+.psu .big{font-size:1.7rem;color:#5ee08a;font-variant-numeric:tabular-nums}
+.psu .st{font-size:.8rem;padding:2px 8px;border-radius:4px;background:#26323f}
+.psu .st.cc{background:#c2410c;color:#fff}.psu .st.cv{background:#17803d;color:#fff}.psu .st.off{background:#3a4552;color:#aab}
+.plist{display:grid;gap:10px;margin:0;padding:0;list-style:none;counter-reset:pq}
+.plist li{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 16px;display:grid;gap:8px;counter-increment:pq}
+.plist .q::before{content:"Q" counter(pq) ". ";font-family:var(--f-mono);color:var(--accent);font-weight:600}
+.plist details summary{cursor:pointer;font-family:var(--f-mono);font-size:.85rem;color:var(--accent)}
+.plist details[open] summary{margin-bottom:6px}
+.plist .ans{font-weight:700}
+.plist .work{font-size:.92rem;color:var(--muted)}
+</style>
+<div class="wrap">
+<!--title: Lab 7 Assembly Buzzer-->
+<header class="hero">
+  <div class="eyebrow">ESE 123 · Laboratory 7 · TA walkthrough</div>
+  <h1>Assembly Language &amp; the Buzzer</h1>
+  <p class="lede">Your board gets its brain. You plug in the ATmega4809 microcontroller, solder the piezo buzzer, and write your first program in <b>assembly language</b>, the language of the chip itself. The first version toggles the buzzer pin so fast you can’t hear it. Adding delay loops slows it to about 440 Hz, a note you <i>can</i> hear. Then you prepare the surface-mount LEDs for next week.</p>
+  <nav class="labnav" aria-label="All labs"><span>ESE 123 labs:</span><a href="https://cad281.github.io/ese123-lab1/">Lab 1</a> <a href="https://cad281.github.io/ese123-lab2/">Lab 2</a> <a href="https://cad281.github.io/ese123-lab3/">Lab 3</a> <a href="https://cad281.github.io/ese123-lab4/">Lab 4</a> <a href="https://cad281.github.io/ese123-lab5/">Lab 5</a> <a href="https://cad281.github.io/ese123-lab6/">Lab 6</a> <a href="https://cad281.github.io/ese123-lab7/" aria-current="page">Lab 7</a></nav>
+  <nav class="toc" aria-label="Sections">
+    <a href="#cpu">1 · Run the program</a>
+    <a href="#machine">2 · Machine code &amp; bits</a>
+    <a href="#timing">3 · Counting clock cycles</a>
+    <a href="#build">4 · Board assembly</a>
+    <a href="#mplab">5 · MPLAB X step by step</a>
+    <a href="#formulas">6 · Formula sheet</a>
+    <a href="#practice">7 · Practice questions</a>
+    <a href="#report">8 · Report guide</a>
+  </nav>
+</header>
+
+<section class="lab" id="cpu">
+  <div class="steps-tag">Pre-lab 7 · handout steps 28–37</div>
+  <h2>1 · Watch the chip run your program, one instruction at a time</h2>
+  <p>This is a simulator of the ATmega4809 running the exact code from the handout. The processor reads one instruction, does it, adds its clock cycles to the total, and moves the <b>program counter</b> to the next line. Watch the registers <span class="mono">r16</span> and <span class="mono">r17</span>, the <b>Z (zero) flag</b>, and pin <b>PF6</b>, which drives the buzzer test point BUZ. Step through slowly first, then run fast and look at the scope.</p>
+  <div class="tabs"><button type="button" data-prog="1" class="on">Program 1: no delay (steps 28–34)</button><button type="button" data-prog="2">Program 2: delay loops (step 35)</button></div>
+  <div class="two">
+    <div class="panel" style="padding:0;overflow:hidden">
+      <pre id="code" class="mono" style="margin:0;padding:12px 0;font-size:.82rem;line-height:1.55;overflow-x:auto;background:var(--bg)"></pre>
+    </div>
+    <div class="stack">
+      <div class="panel">
+        <dl class="readout" id="regs"></dl>
+        <div class="ctrls">
+          <button type="button" id="bStep">Step</button>
+          <button type="button" id="bRun">Run</button>
+          <button type="button" id="bEdge">Run to next pin change</button>
+          <button type="button" id="bReset">Reset</button>
+        </div>
+        <div class="ctrls">
+          <label for="sN">r17 start value (loop count)<input type="number" id="sN" value="255" min="1" max="255"></label>
+          <label for="sClk">CPU clock<select id="sClk"><option value="3333333">3.33 MHz (chip default, 20 MHz ÷ 6)</option><option value="20000000">20 MHz</option></select></label>
+        </div>
+        <div class="msg" id="simMsg"></div>
+      </div>
+    </div>
+  </div>
+  <div class="bezel">
+    <canvas class="wide" id="cvBuz" aria-label="Scope view of the BUZ pin square wave"></canvas>
+    <div class="strip" id="buzStrip"></div>
+    <div class="ctrls"><button type="button" class="key auto" id="bPlay">▶ Play this tone</button><button type="button" class="key" id="bStop">■ Stop</button><span class="small" style="color:#c9d3dd">Plays a quiet square wave at the frequency above. Program 1 is far above human hearing (20 kHz), so it is silent.</span></div>
+  </div>
+  <div class="why">
+    <div class="panel"><h3>Why Program 1 is silent</h3><p>The loop is only 5 instructions: ldi, out, ldi, out (1 cycle each) and rjmp (2 cycles) = <b>6 cycles</b> per wave. At 3.33 MHz that is about <b>556 kHz</b>, far above the 20 kHz limit of hearing. The scope on BUZ shows it; your ears can’t.</p></div>
+    <div class="panel"><h3>Why the delay loop works</h3><p>Each pass through <span class="mono">bent:</span> spends 12 nops + dec + brne. Starting r17 at 255 makes 255 passes, about 3824 cycles. Doing that once with the pin high and once with it low makes one wave of <b>7656 cycles</b>: about <b>435 Hz</b>, close to concert A (440 Hz).</p></div>
+    <div class="panel"><h3>DEC sets Z, BRNE reads it</h3><p>DEC subtracts 1 and sets the zero flag only when the result is 0. BRNE (“branch if not equal”) jumps back while Z is <b>clear</b> and falls through once Z is set. (The pre-lab table words this backwards; the text below it is right.)</p></div>
+    <div class="panel"><h3>20 MHz or 3.33 MHz?</h3><p>The pre-lab says 20 MHz, but the program never changes the clock settings, and the ATmega4809 starts up dividing 20 MHz by 6. Your measured frequency tells you which: 7656 cycles × 435 Hz ≈ 3.33 million cycles per second. That’s the first report question.</p></div>
+  </div>
+</section>
+
+<section class="lab" id="machine">
+  <div class="steps-tag">Pre-lab 7 · machine and assembly language</div>
+  <h2>2 · From assembly to machine code, and choosing bits</h2>
+  <p>The chip only understands 16-bit numbers. <span class="mono">LDI r24,165</span> is assembled into <span class="mono">1110 1010 1000 0101</span>: 4 bits say “LDI”, 8 bits hold the constant (split in two), and 4 bits pick the register. Only 4 bits for the register is why LDI works with r16–r31 only. Pick a register and a constant:</p>
+  <div class="two">
+    <div class="panel">
+      <div class="ctrls">
+        <label for="eR">Register<select id="eR"></select></label>
+        <label for="eK">Constant (0–255, or 0x.., 0b..)<input id="eK" value="165" style="font:inherit;font-family:var(--f-mono);padding:6px 8px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink);width:10em"></label>
+      </div>
+      <div id="enc" class="formula" style="font-size:1.05rem"></div>
+      <dl class="readout" id="encOut"></dl>
+    </div>
+    <div class="panel">
+      <h3>Which pin goes high? Click the bits</h3>
+      <div class="stepper" id="bits"></div>
+      <pre class="formula" id="bitCode" style="margin:0;font-size:.9rem"></pre>
+      <p class="small">Bit 0 is the rightmost (least significant), bit 7 the leftmost. There is no “out immediate”, so you always load a register with LDI first, then OUT it to the port.</p>
+    </div>
+  </div>
+</section>
+
+<section class="lab" id="timing">
+  <div class="steps-tag">Pre-lab 7 looping example · handout pages 5–6</div>
+  <h2>3 · Counting clock cycles in a delay loop</h2>
+  <p>Most instructions take 1 cycle. BRNE takes 2 when it jumps and 1 when it doesn’t; RJMP takes 2; a label takes none. For a loop that starts with <span class="mono">ldi rX,N</span> and has k one-cycle instructions plus dec and brne inside, the cycle count is below. Change N and k to design your own tone.</p>
+  <div class="two">
+    <div class="panel">
+      <div class="ctrls">
+        <label for="tN">N (loop count)<input type="number" id="tN" value="255" min="1" max="255"></label>
+        <label for="tK">k (nops per pass)<input type="number" id="tK" value="12" min="0" max="200"></label>
+        <label for="tClk">Clock<select id="tClk"><option value="3333333">3.33 MHz</option><option value="20000000">20 MHz</option></select></label>
+      </div>
+      <dl class="readout" id="tOut"></dl>
+      <div class="ctrls"><button type="button" id="tPre">Pre-lab example (N = 10, k = 1)</button><button type="button" id="tLab">Lab values (N = 255, k = 12)</button><button type="button" id="tA">Closest to 440 Hz</button></div>
+    </div>
+    <div class="panel">
+      <canvas id="cvLoop" style="width:100%;aspect-ratio:16/9;display:block" aria-label="Bar showing how the delay loop's cycles add up"></canvas>
+    </div>
+  </div>
+</section>
+
+<section class="lab" id="build">
+  <div class="steps-tag">Handout steps 1–8 and 41–52</div>
+  <h2>4 · Board assembly: buzzer, R15, the microcontroller and the LEDs</h2>
+  <div class="parts" id="parts"></div>
+  <div class="panel detail" id="partDetail"></div>
+  <div class="two">
+    <div class="panel">
+      <canvas id="cvLed" style="width:100%;aspect-ratio:16/9;display:block" aria-label="Surface mount LED and its pads: green mark on the cathode goes to the pad with horns"></canvas>
+    </div>
+    <div class="panel">
+      <h3>Surface-mount LED orientation</h3>
+      <p class="small">The two pads are not identical: the cathode (−) pad has little “horns”. The LED’s green (or black) mark is the cathode. <b>Green mark → horned pad.</b> On the solder side, with the board oriented as in the handout, the six horizontal LEDs point their green marks left, the two vertical ones up.</p>
+      <p class="small">Mixed colours look alike when unlit. DMM <b>Shift → Cont</b> (diode test) lights the LED so you can see its colour; swap probes if it doesn’t light (it only conducts one way).</p>
+      <p class="small">Six LEDs count seconds, one shows USB power, one shows the alarm is armed. Some colours don’t show through some acrylic covers, so check the demo board at the back of the lab first.</p>
+    </div>
+  </div>
+</section>
+
+<section class="lab" id="mplab">
+  <div class="steps-tag">Handout steps 9–34</div>
+  <h2>5 · MPLAB X, step by step</h2>
+  <div class="two">
+    <div class="panel">
+      <ol class="flow" id="mpSteps"></ol>
+    </div>
+    <div class="panel">
+      <h3>When the build fails</h3>
+      <p class="small">Step 30 asks you to break it on purpose (type <span class="mono">lido</span> instead of <span class="mono">ldi</span>). The Output box shows an error with a hyperlink; click it to jump to the line. Common real mistakes:</p>
+      <ul class="small" style="margin:0;padding-left:1.2em;display:grid;gap:4px">
+        <li>A label not at the left margin, or missing its colon.</li>
+        <li>Two labels with the same name (that’s why the second loop is called <span class="mono">relaxed</span>).</li>
+        <li>LDI into r0–r15 (only r16–r31 allowed).</li>
+        <li>A typo in <span class="mono">VPORTF_OUT</span> / <span class="mono">VPORTF_DIR</span>.</li>
+        <li>No Snap listed: cancel, unplug and replug the USB cable, start the project again.</li>
+      </ul>
+      <p class="small">Then measure <b>BUZ</b> (right edge of the board; PF6, chip pin 29) with the scope, ground clip on the GND loop.</p>
+    </div>
+  </div>
+</section>
+
+<section class="lab" id="formulas">
+  <div class="steps-tag">Keep this open during the lab</div>
+  <h2>6 · Formula sheet: what, when, and an example</h2>
+  <div class="fgrid" id="formulasHost"></div>
+</section>
+
+<section class="lab" id="practice">
+  <div class="steps-tag">Self-check · same concepts as the pre-lab and report, new numbers</div>
+  <h2>7 · Practice questions</h2>
+  <p>Try each one before opening the answer. These are not the real assignment questions; they use the same ideas with different numbers.</p>
+  <ol class="plist" id="practiceHost"></ol>
+</section>
+
+<section class="lab" id="report">
+  <div class="steps-tag">Pre-lab report and lab report</div>
+  <h2>8 · Report guide</h2>
+  <ol class="qlist">
+    <li>Pre-lab: a fragment that sets bit 4 of PORTD high.<span>LDI a register with only bit 4 set, then OUT it to VPORTD_OUT.</span></li>
+    <li>Pre-lab: set bit 4 high, delay 3 cycles, set it low, delay 1 cycle.<span>Count cycles: each NOP is one.</span></li>
+    <li>Pre-lab: repeat that sequence 8 times.<span>Use the loop recipe: LDI a counter with 8, label, body, DEC, BRNE.</span></li>
+    <li>Lab: clock cycles per second = 7656 × your measured frequency (3 pts).<span>Expect about 3.3 million (the 20 MHz ÷ 6 default).</span></li>
+    <li>Lab: scope image of BUZ showing the measured frequency (5 pts).</li>
+    <li>Lab: screenshot of your delay-loop code (2 pts).</li>
+  </ol>
+</section>
+
+</div>
+<script>
+(()=>{
+
+const TAU=Math.PI*2;
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $=s=>document.querySelector(s);
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const ease=x=>{x=clamp(x);return x<.5?2*x*x:1-Math.pow(-2*x+2,2)/2};
+const lerp=(a,b,k)=>a+(b-a)*k;
+
+let P={};
+function refresh(){const cs=getComputedStyle(document.documentElement);
+  ['--scr','--grid','--grid2','--c1s','--c2s','--curs','--hl','--part','--ink','--muted','--line','--accent','--warn','--ch1','--ch2','--panel','--bg','--f-mono'].forEach(k=>P[k.slice(2)]=cs.getPropertyValue(k).trim());}
+refresh();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',refresh);
+new MutationObserver(refresh).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+
+function fmt(v,u,d=3){if(!isFinite(v))return '—';if(v===0)return '0 '+u;const a=Math.abs(v);
+  const pre=[[1e6,'M'],[1e3,'k'],[1,''],[1e-3,'m'],[1e-6,'µ'],[1e-9,'n'],[1e-12,'p']];
+  for(const [m,p] of pre){if(a>=m*0.9995){return Number((v/m).toPrecision(d))+' '+p+u}}
+  return Number((v/1e-12).toPrecision(d))+' p'+u;}
+const steps125=(lo,hi)=>{const r=[];for(let e=-7;e<=1;e++)for(const m of [1,2,5]){const v=m*Math.pow(10,e);if(v>=lo*0.999&&v<=hi*1.001)r.push(+v.toPrecision(3))}return r};
+const TDIV=steps125(1e-5,1), VDIV=steps125(2e-3,5);
+function fillSelect(sel,list,unit,val){sel.innerHTML=list.map(v=>`<option value="${v}">${fmt(v,unit)}/div</option>`).join('');sel.value=String(val)}
+
+function fit(cv){const dpr=window.devicePixelRatio||1;const w=cv.clientWidth,h=cv.clientHeight;
+  const W=Math.round(w*dpr),H=Math.round(h*dpr);if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H}
+  const ctx=cv.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);return {ctx,w,h};}
+
+// Generic scope: 10 x 8 divisions, screen time from -pos*tdiv to (10-pos)*tdiv, trigger at t=0
+function drawScope(cv,o){
+  const {ctx,w,h}=fit(cv); if(!w)return;
+  const tdiv=o.tdiv,pos=o.pos??5,tL=-pos*tdiv,span=10*tdiv,dx=w/10,dy=h/8;
+  const X=t=>(t-tL)/span*w, T=x=>tL+x/w*span;
+  ctx.fillStyle=P.scr;ctx.fillRect(0,0,w,h);
+  ctx.strokeStyle=P.grid;ctx.lineWidth=1;ctx.setLineDash([1,3]);ctx.beginPath();
+  for(let i=1;i<10;i++){ctx.moveTo(i*dx+.5,0);ctx.lineTo(i*dx+.5,h)}
+  for(let j=1;j<8;j++){ctx.moveTo(0,j*dy+.5);ctx.lineTo(w,j*dy+.5)}
+  ctx.stroke();ctx.setLineDash([]);
+  ctx.strokeStyle=P.grid2;ctx.beginPath();ctx.moveTo(0,h/2+.5);ctx.lineTo(w,h/2+.5);ctx.moveTo(w/2+.5,0);ctx.lineTo(w/2+.5,h);
+  for(let i=0;i<50;i++){const x=i*dx/5+.5;ctx.moveTo(x,h/2-3);ctx.lineTo(x,h/2+3)}
+  for(let j=0;j<40;j++){const y=j*dy/5+.5;ctx.moveTo(w/2-3,y);ctx.lineTo(w/2+3,y)}
+  ctx.stroke();
+  // trigger position marker
+  ctx.fillStyle=P.accent;ctx.beginPath();const tx=X(0);ctx.moveTo(tx-5,0);ctx.lineTo(tx+5,0);ctx.lineTo(tx,7);ctx.fill();
+  ctx.save();ctx.beginPath();ctx.rect(0,0,w,h);ctx.clip();
+  const g={ctx,w,h,dx,dy,X,T,tdiv,Y:(v,vdiv,off=0)=>h/2-(v/vdiv)*dy-off*dy};
+  o.under&&o.under(g);
+  const prog=o.progress??1;
+  for(const tr of o.traces){
+    ctx.strokeStyle=tr.color;ctx.lineWidth=tr.width||2;ctx.globalAlpha=tr.alpha??1;
+    ctx.shadowColor=tr.color;ctx.shadowBlur=reduce?0:6;ctx.beginPath();
+    const N=Math.ceil(w*1.5),end=Math.floor(N*prog);
+    for(let i=0;i<=end;i++){const x=i/N*w;const y=g.Y(tr.fn(T(x)),tr.vdiv,tr.off||0);
+      const yc=Math.max(-20,Math.min(h+20,y));i?ctx.lineTo(x,yc):ctx.moveTo(x,yc)}
+    ctx.stroke();ctx.shadowBlur=0;ctx.globalAlpha=1;
+    if(prog<1&&!reduce){const x=end/N*w;ctx.fillStyle=tr.color;ctx.beginPath();ctx.arc(x,g.Y(tr.fn(T(x)),tr.vdiv,tr.off||0),3,0,TAU);ctx.fill()}
+  }
+  o.over&&o.over(g);
+  ctx.restore();
+}
+function hline(g,y,dash,color,label,right){const c=g.ctx;c.strokeStyle=color;c.lineWidth=1.3;c.setLineDash(dash);c.beginPath();c.moveTo(0,y);c.lineTo(g.w,y);c.stroke();c.setLineDash([]);
+  if(label){c.font=`11px ${P['f-mono']}`;c.fillStyle=color;c.textAlign=right?'right':'left';c.fillText(label,right?g.w-6:6,y-5)}}
+function vline(g,x,dash,color,label){const c=g.ctx;c.strokeStyle=color;c.lineWidth=1.3;c.setLineDash(dash);c.beginPath();c.moveTo(x,0);c.lineTo(x,g.h);c.stroke();c.setLineDash([]);
+  if(label){c.font=`11px ${P['f-mono']}`;c.fillStyle=color;c.textAlign='left';c.fillText(label,x+4,g.h-8)}}
+function tag(g,x,y,text,color){const c=g.ctx;c.font=`600 12px ${P['f-mono']}`;const m=c.measureText(text).width;
+  x=Math.max(4,Math.min(g.w-m-12,x));c.fillStyle='rgba(10,16,23,.85)';c.fillRect(x,y-14,m+8,19);c.fillStyle=color;c.textAlign='left';c.fillText(text,x+4,y)}
+
+// visibility-driven animation loop
+const vis=new Map();const io=new IntersectionObserver(es=>es.forEach(e=>vis.set(e.target,e.isIntersecting)),{rootMargin:'100px'});
+const anims=[];function anim(el,fn){io.observe(el);anims.push([el,fn]);vis.set(el,true)}
+let t0=performance.now();
+function loop(now){const t=(now-t0)/1000;for(const [el,fn] of anims){if(vis.get(el))fn(t)}requestAnimationFrame(loop)}
+
+
+window.FORMULAS=[{"name": "Clock period", "eq": "t<sub>cycle</sub> = 1 / f<sub>clk</sub>", "when": "Turning a cycle count into time.", "vars": [["f<sub>clk</sub>", "instruction clock: 20 MHz, or 3.33 MHz with the chip’s default ÷6"]], "ex": "20 MHz → 50 ns per cycle; 3.33 MHz → 300 ns."}, {"name": "Instruction cycle costs", "eq": "ldi, out, nop, dec = 1 cycle\nbrne = 2 if it jumps, 1 if not\nrjmp = 2,  label = 0", "when": "Counting how long any piece of code takes.", "ex": "ldi + out + ldi + out + rjmp = 6 cycles (Program 1)."}, {"name": "Delay loop length", "eq": "cycles = 1 + N(k+1) + 2(N−1) + 1 = N(k + 3)", "when": "An <span class=\"mono\">ldi rX,N</span> followed by a loop of k one-cycle instructions plus dec and brne.", "vars": [["N", "starting count in the register (1–255)"], ["k", "nops (or other 1-cycle instructions) per pass"]], "ex": "Pre-lab: N = 10, k = 1 → 40 cycles = 2 µs at 20 MHz. Lab: N = 255, k = 12 → 3825 cycles."}, {"name": "Buzzer wave length", "eq": "cycles per wave = 2 × N(k+3) + 6", "when": "Program 2: one delay with the pin high, one with it low, plus ldi/out twice (4) and rjmp (2).", "ex": "2 × 3825 + 6 = 7656 cycles."}, {"name": "Output frequency", "eq": "f<sub>out</sub> = f<sub>clk</sub> / (cycles per wave)", "when": "Predicting what the scope will show on BUZ.", "ex": "3 333 333 / 7656 = 435 Hz;  3 333 333 / 6 = 556 kHz (Program 1)."}, {"name": "Clock from a measurement", "eq": "f<sub>clk</sub> = (cycles per wave) × f<sub>measured</sub>", "when": "Report question 1: working out how many clock cycles run per second.", "ex": "7656 × 435.4 Hz = 3.33 million cycles/s (20 MHz ÷ 6)."}, {"name": "Period and frequency", "eq": "T = 1/f,  half period = T/2 for a 50% square wave", "when": "Reading the BUZ waveform on the scope.", "ex": "435 Hz → T = 2.30 ms, high for 1.15 ms."}, {"name": "Bit weights and pin masks", "eq": "bit n has weight 2ⁿ;  mask for bit n = 1 &lt;&lt; n", "when": "Choosing the constant that turns on one pin.", "ex": "PF6 → 2⁶ = 64 = 0x40 = 0b01000000. Bit 4 → 16 = 0x10."}, {"name": "Number formats", "eq": "0x = hexadecimal, 0b = binary, no prefix = decimal\n1 hex digit = 4 binary bits", "when": "Writing constants in assembly; all three can mean the same value.", "ex": "165 = 0xA5 = 0b10100101."}, {"name": "LDI machine code", "eq": "1110 KKKK dddd KKKK,   register = r(16 + dddd)", "when": "Understanding why LDI only reaches r16–r31 (4 bits = 16 registers).", "ex": "LDI r24,165 → 1110 1010 1000 0101 = 0xEA85."}, {"name": "Address range", "eq": "n address bits → 2ⁿ locations", "when": "Program counter size: 15 bits reach 32 768 instructions; the chip has 24 576.", "ex": "2¹⁵ = 32 768 ≥ 24 576 ✓."}, {"name": "Audible range", "eq": "≈ 20 Hz to 20 kHz", "when": "Deciding if a tone can be heard.", "ex": "556 kHz: silent. 435 Hz: audible (close to concert A, 440 Hz)."}];
+window.PRACTICE=[{"q": "Write two instructions that make only bit 3 of PORTA high.", "a": "ldi r20, 0b00001000 / out VPORTA_OUT, r20", "work": "There’s no “out immediate”: load a register with the mask (bit 3 = 8 = 0x08), then OUT it to the port."}, {"q": "What decimal and binary values does <span class=\"mono\">ldi r24, 0x3C</span> load?", "a": "60 = 0b00111100", "work": "0x3C = 3×16 + 12 = 60. Each hex digit is 4 bits: 3 = 0011, C = 1100."}, {"q": "Write the 16-bit machine code for <span class=\"mono\">LDI r20, 0x5A</span>.", "a": "1110 0101 0100 1010 (0xE54A)", "work": "Opcode 1110, high nibble of 0x5A = 0101, register 20 − 16 = 4 = 0100, low nibble = 1010."}, {"q": "Why does the assembler reject <span class=\"mono\">ldi r5, 10</span>?", "a": "LDI only works with r16–r31", "work": "The instruction has only 4 bits for the register, enough for 16 registers, and they are r16–r31."}, {"q": "How long does one NOP take at 20 MHz? At 3.33 MHz?", "a": "50 ns; 300 ns", "work": "One cycle = 1/f: 1/20 MHz = 50 ns, 1/3.33 MHz = 300 ns."}, {"q": "How many cycles does this take? <span class=\"mono\">ldi r24,5 / loop: nop / nop / dec r24 / brne loop</span>", "a": "25 cycles", "work": "Formula N(k+3) with N = 5, k = 2: 5 × 5 = 25. By hand: 1 + 5×3 + 4×2 + 1 = 25."}, {"q": "Program 1’s loop is ldi, out, ldi, out, rjmp. How many cycles per wave and what frequency at 3.33 MHz? Can you hear it?", "a": "6 cycles, 556 kHz, no", "work": "1+1+1+1+2 = 6. 3 333 333/6 ≈ 556 kHz, far above 20 kHz."}, {"q": "In Program 2, r17 starts at 100 instead of 255 (still 12 nops). What frequency at 3.33 MHz?", "a": "≈ 1110 Hz", "work": "Delay = N(k+3) = 100 × 15 = 1500. Wave = 2 × 1500 + 6 = 3006 cycles. f = 3 333 333/3006 = 1109 Hz."}, {"q": "Each buzzer wave takes 7656 cycles and the scope measures 436 Hz. How many clock cycles per second?", "a": "≈ 3.34 million", "work": "f<sub>clk</sub> = 7656 × 436 = 3 338 016 ≈ 3.33 MHz, the 20 MHz ÷ 6 default."}, {"q": "After <span class=\"mono\">dec r17</span> makes r17 equal 0, what does <span class=\"mono\">brne bent</span> do, and how many cycles?", "a": "Falls through, 1 cycle", "work": "DEC set the Z flag. BRNE only branches when Z is clear, so it continues to the next line and costs 1 cycle."}, {"q": "Which code makes PF6 an output, and why is that needed before writing VPORTF_OUT?", "a": "ldi r16, 0b01000000 / out VPORTF_DIR, r16", "work": "Pins start as inputs. A 1 in the direction register’s bit 6 makes PF6 an output so it can drive the buzzer."}, {"q": "You want about 1 kHz at 3.33 MHz with k = 12. What N should r17 start at?", "a": "N ≈ 111", "work": "Wave cycles = 3 333 333/1000 = 3333. 2 × 15N + 6 = 3333 → N = 110.9 → 111 (gives 999 Hz)."}, {"q": "Which end of a surface-mount LED goes on the pad with “horns”?", "a": "The green/black-marked end (cathode)", "work": "The horned pad is the cathode; the coloured mark on the LED is also the cathode."}];
+// ---- shared additions for the lab series ----
+const E24=[1.0,1.1,1.2,1.3,1.5,1.6,1.8,2.0,2.2,2.4,2.7,3.0,3.3,3.6,3.9,4.3,4.7,5.1,5.6,6.2,6.8,7.5,8.2,9.1];
+function e24Near(v){const e=Math.floor(Math.log10(v));let best=1e99,bv=v;for(const d of [e-1,e,e+1])for(const m of E24){const c=m*Math.pow(10,d);if(Math.abs(Math.log(c/v))<Math.abs(Math.log(best/v))){best=c;bv=c}}return +bv.toPrecision(3)}
+function logAxes(ctx,w,h,pad,fx,fy,xt,yt,xl,yl){
+  ctx.fillStyle=P.panel;ctx.fillRect(0,0,w,h);ctx.strokeStyle=P.line;ctx.lineWidth=1;ctx.font=`10px ${P['f-mono']}`;ctx.fillStyle=P.muted;
+  ctx.textAlign='center';for(const [v,l] of xt){const x=fx(v);ctx.beginPath();ctx.moveTo(x,pad.t);ctx.lineTo(x,h-pad.b);ctx.stroke();ctx.fillText(l,x,h-pad.b+14)}
+  ctx.textAlign='right';for(const [v,l] of yt){const y=fy(v);ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(w-pad.r,y);ctx.stroke();ctx.fillText(l,pad.l-5,y+3)}
+  ctx.textAlign='center';ctx.fillText(xl,(pad.l+w-pad.r)/2,h-3);
+  ctx.save();ctx.translate(11,(pad.t+h-pad.b)/2);ctx.rotate(-Math.PI/2);ctx.fillText(yl,0,0);ctx.restore();}
+// General x-y plot. o: {x:[min,max], y:[min,max], logx, xt:[[v,label]], yt, xl, yl, series:[{fn|pts, color, dots, width, dash}], marks:[{x,y,color,label,ring}], hl:[x0,x1]}
+function plot(cv,o){const {ctx,w,h}=fit(cv);if(!w)return null;const pad={l:o.padl||54,r:14,t:12,b:32};
+  const lx=v=>o.logx?Math.log10(v):v;const X0=lx(o.x[0]),X1=lx(o.x[1]);
+  const fx=v=>pad.l+(lx(v)-X0)/(X1-X0)*(w-pad.l-pad.r),fy=v=>pad.t+(1-(v-o.y[0])/(o.y[1]-o.y[0]))*(h-pad.t-pad.b);
+  logAxes(ctx,w,h,pad,fx,fy,o.xt,o.yt,o.xl,o.yl);
+  ctx.save();ctx.beginPath();ctx.rect(pad.l,pad.t,w-pad.l-pad.r,h-pad.t-pad.b);ctx.clip();
+  if(o.hl){ctx.fillStyle=P.hl;ctx.fillRect(fx(o.hl[0]),pad.t,fx(o.hl[1])-fx(o.hl[0]),h-pad.t-pad.b)}
+  for(const s of o.series){ctx.strokeStyle=s.color;ctx.fillStyle=s.color;ctx.lineWidth=s.width||2.2;ctx.setLineDash(s.dash||[]);
+    let pts=s.pts;if(s.fn){pts=[];for(let i=0;i<=300;i++){const xv=o.logx?Math.pow(10,X0+(X1-X0)*i/300):o.x[0]+(o.x[1]-o.x[0])*i/300;pts.push([xv,s.fn(xv)])}}
+    if(s.line!==false){ctx.beginPath();pts.forEach(([a,b],i)=>{const X=fx(a),Y=fy(b);i?ctx.lineTo(X,Y):ctx.moveTo(X,Y)});ctx.stroke()}
+    ctx.setLineDash([]);if(s.dots)for(const [a,b] of pts){ctx.beginPath();ctx.arc(fx(a),fy(b),s.r||3.5,0,TAU);ctx.fill()}}
+  ctx.restore();
+  for(const m of o.marks||[]){const X=fx(m.x),Y=fy(m.y);ctx.strokeStyle=m.color||P.accent;ctx.fillStyle=m.color||P.accent;ctx.lineWidth=2;ctx.beginPath();ctx.arc(X,Y,m.ring?7:4,0,TAU);m.ring?ctx.stroke():ctx.fill();
+    if(m.label){ctx.font=`600 11px ${P['f-mono']}`;const right=X>w*0.65;ctx.textAlign=right?'right':'left';ctx.fillText(m.label,X+(right?-10:10),Math.max(pad.t+12,Y-8))}}
+  return {fx,fy,pad,w,h,ctx};}
+// Formula cards from window.FORMULAS
+function renderFormulas(el,list){el.innerHTML=list.map(f=>`<div class="fcard"><h3>${f.name}</h3><div class="eq">${f.eq}</div><p class="when"><b>Use it when:</b> ${f.when}</p>${f.vars?`<dl class="vars">${f.vars.map(([a,b])=>`<dt>${a}</dt><dd>${b}</dd>`).join('')}</dl>`:''}${f.ex?`<p class="ex"><b>Example</b>${f.ex}</p>`:''}</div>`).join('')}
+const fEl=document.getElementById('formulasHost');if(fEl&&window.FORMULAS)renderFormulas(fEl,window.FORMULAS);
+
+const NS='http://www.w3.org/2000/svg';
+const zig=(x,y0,y1)=>{const n=6,h=(y1-y0)/(n+1);let d=`M${x} ${y0} v${h/2}`;for(let i=0;i<n;i++)d+=` l${i%2?-8:8} ${h/2} l${i%2?8:-8} ${h/2}`;return d+` V${y1}`};
+const zigH=(y,x0,x1)=>{const n=6,w=(x1-x0)/(n+1);let d=`M${x0} ${y} h${w/2}`;for(let i=0;i<n;i++)d+=` l${w/2} ${i%2?-7:7} l${w/2} ${i%2?7:-7}`;return d+` H${x1}`};
+const src=(cx,cy,lbl)=>`<circle cx="${cx}" cy="${cy}" r="16" class="wire"/><text x="${cx}" y="${cy-4}" text-anchor="middle" class="lbl">+</text><text x="${cx}" y="${cy+11}" text-anchor="middle" class="lbl">−</text><text x="${cx-22}" y="${cy+4}" text-anchor="end" class="lbl">${lbl}</text>`;
+const meter=(cx,cy,l)=>`<circle cx="${cx}" cy="${cy}" r="15" fill="var(--panel)" stroke="var(--accent)" stroke-width="2"/><text x="${cx}" y="${cy+5}" text-anchor="middle" style="fill:var(--accent);font-size:14px;font-weight:600">${l}</text>`;
+// moving dots along SVG paths
+function dotLayer(svg,specs){const g=document.createElementNS(NS,'g');svg.appendChild(g);const ds=[];
+  for(const s of specs){const p=svg.querySelector('#'+s.id);if(!p)continue;const L=p.getTotalLength();const n=Math.max(3,Math.round(L/s.gap||L/20));
+    for(let i=0;i<n;i++){const c=document.createElementNS(NS,'circle');c.setAttribute('r','2.6');c.setAttribute('fill',s.color||'var(--accent)');g.appendChild(c);ds.push({c,p,L,s:i*L/n,spec:s})}}
+  return t=>{for(const d of ds){const sp=d.spec.speed();const pos=((d.s+(reduce?0:t)*sp)%d.L+d.L)%d.L;const pt=d.p.getPointAtLength(pos);d.c.setAttribute('cx',pt.x);d.c.setAttribute('cy',pt.y);d.c.setAttribute('opacity',sp===0?0:0.9)}}}
+
+// resistor & part drawings (BAND index 10 = gold)
+const BAND=['#111','#7a4a1e','#d32f2f','#f57c00','#fdd835','#2e7d32','#1e63d6','#7b3fb5','#8a8a8a','#f4f4f4','#c9a227'];
+const resSVG=b=>`<svg viewBox="0 0 160 40"><line x1="0" y1="20" x2="160" y2="20" stroke="#9aa3ad" stroke-width="3"/><rect x="38" y="8" width="84" height="24" rx="10" fill="${b.length>4?'#9cc3e6':'#d8c49a'}"/>${b.map((c,i)=>`<rect x="${(i===b.length-1?100:50)+(i===b.length-1?6:i*13)}" y="8" width="7" height="24" fill="${BAND[c]}"/>`).join('')}</svg>`;
+function renderPractice(el,list){el.innerHTML=list.map(p=>`<li><div class="q">${p.q}</div><details><summary>Show answer</summary><div class="ans">${p.a}</div><div class="work">${p.work}</div></details></li>`).join('')}
+const pEl=document.getElementById('practiceHost');if(pEl&&window.PRACTICE)renderPractice(pEl,window.PRACTICE);
+
+/* 1. AVR mini-simulator */
+const NOPS=[{op:'nop',n:5,c:';nops waste time'},{op:'nop',n:5},{op:'nop',n:2}];
+function progLines(p){const head=[{t:'/* Lab 7: make sounds using the buzzer */'},{t:''},{t:';set up PF6 to be an output'},{op:'ldi',r:'r16',v:0x40,c:';the 1 corresponds to PF6'},{op:'out',io:'VPORTF_DIR',r:'r16',c:';write to the portf direction register'},{t:''},{label:'loop',c:';start of a never-ending loop'},{op:'ldi',r:'r16',v:0x40,c:';load r16 with a high in bit 6'},{op:'out',io:'VPORTF_OUT',r:'r16',c:';makes the bender bend'}];
+  if(p===1)return [...head,{t:''},{op:'ldi',r:'r16',v:0,c:';load r16 with a low in bit 6'},{op:'out',io:'VPORTF_OUT',r:'r16',c:';relaxes the bender'},{t:''},{op:'rjmp',to:'loop',c:';repeat forever'}];
+  return [...head,{op:'ldi',r:'r17',v:'N',c:';initialize timing loop'},{label:'bent',c:';start of timing loop'},...NOPS.map(x=>({...x})),{op:'dec',r:'r17',c:';decrement r17'},{op:'brne',to:'bent',c:';branch to bent if r17 is not zero'},
+    {op:'ldi',r:'r16',v:0,c:';load r16 with a low in bit 6'},{op:'out',io:'VPORTF_OUT',r:'r16',c:';relaxes the bender'},{op:'ldi',r:'r17',v:'N',c:';initialize timing loop'},{label:'relaxed',c:';start of timing loop'},...NOPS.map(x=>({...x})),{op:'dec',r:'r17'},{op:'brne',to:'relaxed',c:';branch to relaxed if r17 is not zero'},{op:'rjmp',to:'loop',c:';repeat the whole thing forever'}]}
+const S={p:1,L:[],pc:0,r16:0,r17:0,Z:false,cyc:0,dir:0,out:0,pin:0,hist:[[0,0]],last:'',run:false,acc:0};
+const N=()=>Math.max(1,Math.min(255,+$('#sN').value||255));const CLK=()=>+$('#sClk').value;
+const hex=v=>'0x'+v.toString(16).toUpperCase().padStart(2,'0'),bin=v=>'0b'+v.toString(2).padStart(8,'0');
+function nextExec(i){while(i<S.L.length&&!S.L[i].op)i++;return i}
+function labelIdx(n){return S.L.findIndex(l=>l.label===n)}
+function reset(){S.L=progLines(S.p);S.pc=nextExec(0);Object.assign(S,{r16:0,r17:0,Z:false,cyc:0,dir:0,out:0,pin:0,hist:[[0,0]],last:'Reset: the program counter points at the first instruction.'});render()}
+function step(){const l=S.L[S.pc];const v=l.v==='N'?N():l.v;let nx=S.pc+1;
+  switch(l.op){
+    case 'ldi':S[l.r]=v;S.cyc+=1;S.last=`ldi ${l.r}, ${l.v==='N'?v:bin(v)}: copied ${v} into ${l.r} (1 cycle).`;break;
+    case 'out':{const val=S[l.r];if(l.io==='VPORTF_DIR')S.dir=val;else S.out=val;S.cyc+=1;const p=(S.dir&S.out&0x40)?1:0;if(p!==S.pin){S.pin=p;S.hist.push([S.cyc,p])}
+      S.last=`out ${l.io}, ${l.r}: sent ${bin(val)} to ${l.io==='VPORTF_DIR'?'the direction register (PF6 is now an output)':'the port: PF6 is now '+(p?'HIGH, buzzer bends':'LOW, buzzer relaxes')} (1 cycle).`;break}
+    case 'nop':S.cyc+=l.n;S.last=`${l.n} × nop: did nothing for ${l.n} cycle${l.n>1?'s':''}.`;break;
+    case 'dec':S[l.r]=(S[l.r]-1)&255;S.Z=S[l.r]===0;S.cyc+=1;S.last=`dec ${l.r}: ${l.r} is now ${S[l.r]}, so Z = ${S.Z?1:0} (1 cycle).`;break;
+    case 'brne':if(!S.Z){nx=labelIdx(l.to);S.cyc+=2;S.last=`brne ${l.to}: Z is clear, so jump back to ${l.to} (2 cycles).`}else{S.cyc+=1;S.last=`brne ${l.to}: Z is set (r17 reached 0), so fall through to the next line (1 cycle).`}break;
+    case 'rjmp':nx=labelIdx(l.to);S.cyc+=2;S.last=`rjmp ${l.to}: jump back to ${l.to} (2 cycles).`;break}
+  S.pc=nextExec(nx)}
+function periodCycles(){return S.p===1?6:2*N()*15+6}
+function render(){const n=N();$('#code').innerHTML=S.L.map((l,i)=>{const on=i===S.pc;let t;
+    if(l.t!==undefined)t=`<span style="color:var(--ok)">${l.t}</span>`;else if(l.label)t=`<b>${l.label}:</b>`;
+    else{const args=l.op==='ldi'?`<span style="color:var(--accent)">${l.r}</span>, ${l.v==='N'?n:bin(l.v)}`:l.op==='out'?`<span style="color:var(--warn)">${l.io}</span>, <span style="color:var(--accent)">${l.r}</span>`:l.op==='nop'?Array(l.n-1).fill('nop').join(' '):l.op==='dec'?`<span style="color:var(--accent)">${l.r}</span>`:l.to;t=`    <b style="color:var(--ink)">${l.op}</b> ${args}`}
+    const c=l.c?`<span style="color:var(--ok)">${'&nbsp;'.repeat(Math.max(1,30-(t.replace(/<[^>]+>/g,'').length)))}${l.c}</span>`:'';
+    return `<div style="padding:0 14px;${on?'background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent)':''}">${on?'▶ ':'  '}${t}${c}</div>`}).join('');
+  const us=S.cyc/CLK()*1e6;
+  $('#regs').innerHTML=`<dt>PC (line)</dt><dd>${S.pc}</dd><dt>r16</dt><dd class="hot">${bin(S.r16)} = ${S.r16}</dd><dt>r17</dt><dd class="hot">${S.r17}</dd><dt>Z flag</dt><dd>${S.Z?'1 (last result was zero)':'0'}</dd><dt>PF6 / BUZ</dt><dd style="color:${S.pin?'var(--warn)':'var(--muted)'}"><b>${S.pin?'HIGH (5 V)':'LOW (0 V)'}</b></dd><dt>clock cycles</dt><dd>${S.cyc.toLocaleString()} = ${us<1000?us.toFixed(2)+' µs':(us/1000).toFixed(3)+' ms'}</dd>`;
+  $('#simMsg').textContent=S.last;$('#bRun').textContent=S.run?'Pause':'Run';$('#bRun').classList.toggle('on',S.run)}
+function toEdge(){const p0=S.pin;let k=0;while(S.pin===p0&&k<300000){step();k++}render()}
+document.querySelectorAll('[data-prog]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-prog]').forEach(x=>x.classList.toggle('on',x===b));S.p=+b.dataset.prog;S.run=false;reset();stopTone()});
+$('#bStep').onclick=()=>{step();render()};$('#bRun').onclick=()=>{S.run=!S.run;render()};$('#bEdge').onclick=toEdge;$('#bReset').onclick=()=>{S.run=false;reset()};
+$('#sN').onchange=()=>{reset()};$('#sClk').onchange=()=>render();
+reset();
+anim($('#cvBuz'),t=>{if(S.run&&!reduce){S.acc+=1;if(S.acc>=8){S.acc=0;step();render()}}
+  const cv=$('#cvBuz');const {ctx,w,h}=fit(cv);if(!w)return;ctx.fillStyle=P.scr;ctx.fillRect(0,0,w,h);
+  ctx.strokeStyle=P.grid;ctx.setLineDash([1,3]);ctx.beginPath();for(let i=1;i<10;i++){ctx.moveTo(i*w/10,0);ctx.lineTo(i*w/10,h)}ctx.moveTo(0,h/2);ctx.lineTo(w,h/2);ctx.stroke();ctx.setLineDash([]);
+  const Pc=periodCycles(),W=Math.max(2.5*Pc,40),x0=Math.max(0,S.cyc-W);const X=c=>(c-x0)/W*w,Y=v=>v?h*0.22:h*0.78;
+  ctx.strokeStyle=P.c1s;ctx.lineWidth=2;ctx.shadowColor=P.c1s;ctx.shadowBlur=reduce?0:6;ctx.beginPath();let lv=0;for(const [c,v] of S.hist){if(c<x0){lv=v;continue}}ctx.moveTo(0,Y(lv));
+  for(const [c,v] of S.hist){if(c<x0)continue;ctx.lineTo(X(c),Y(lv));ctx.lineTo(X(c),Y(v));lv=v}ctx.lineTo(X(S.cyc),Y(lv));ctx.stroke();ctx.shadowBlur=0;
+  ctx.fillStyle=P.c1s;ctx.beginPath();ctx.arc(X(S.cyc),Y(lv),3,0,TAU);ctx.fill();
+  const rises=S.hist.filter(([,v])=>v===1).map(([c])=>c);const f=CLK()/Pc;let meas='';if(rises.length>=2){const pc=rises[rises.length-1]-rises[rises.length-2];meas=`measured: ${pc.toLocaleString()} cycles/period → ${fmt(CLK()/pc,'Hz',4)}`}
+  const s=`<span class="c1">BUZ (PF6)</span><span>window ${Math.round(W).toLocaleString()} cycles = ${fmt(W/CLK(),'s')}</span><span>predicted: ${Pc.toLocaleString()} cycles/period → ${fmt(f,'Hz',4)}${f>20000?' (inaudible)':''}</span><span>${meas||'press “Run to next pin change” a few times to measure'}</span>`;if($('#buzStrip').innerHTML!==s)$('#buzStrip').innerHTML=s});
+let AC=null,OSC=null;function stopTone(){try{OSC&&OSC.stop()}catch(e){}OSC=null}
+$('#bPlay').onclick=()=>{stopTone();const f=CLK()/periodCycles();if(f>20000){$('#simMsg').textContent=`${fmt(f,'Hz',3)} is above human hearing (20 kHz), so there is nothing to hear. That’s exactly why Program 1 seems silent.`;return}
+  try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();const g=AC.createGain();g.gain.value=0.04;OSC=AC.createOscillator();OSC.type='square';OSC.frequency.value=f;OSC.connect(g).connect(AC.destination);OSC.start();OSC.stop(AC.currentTime+2.5)}catch(e){$('#simMsg').textContent='Sound is not available in this browser.'}};
+$('#bStop').onclick=stopTone;
+
+/* 2. Encoding and bits */
+$('#eR').innerHTML=Array.from({length:16},(_,i)=>`<option value="${16+i}">r${16+i}</option>`).join('');$('#eR').value='24';
+function parseK(s){s=String(s).trim().toLowerCase();let v=s.startsWith('0x')?parseInt(s.slice(2),16):s.startsWith('0b')?parseInt(s.slice(2),2):parseInt(s,10);return isFinite(v)?v:NaN}
+function encText(){const r=+$('#eR').value,k=parseK($('#eK').value);if(!(k>=0&&k<=255)){$('#enc').textContent='Constant must be 0–255';$('#encOut').innerHTML='';return}
+  const d=r-16,kh=(k>>4).toString(2).padStart(4,'0'),kl=(k&15).toString(2).padStart(4,'0'),dd=d.toString(2).padStart(4,'0');const word=(0xE<<12)|((k>>4)<<8)|(d<<4)|(k&15);
+  $('#enc').innerHTML=`<span style="color:var(--accent)">1110</span> <span style="color:var(--warn)">${kh}</span> <span style="color:var(--ch2)">${dd}</span> <span style="color:var(--warn)">${kl}</span>`;
+  $('#encOut').innerHTML=`<dt>assembly</dt><dd class="hot">LDI r${r}, ${k}</dd><dt>opcode</dt><dd><span style="color:var(--accent)">1110</span> = LDI</dd><dt>constant</dt><dd><span style="color:var(--warn)">${kh} ${kl}</span> = ${k} = ${hex(k)}</dd><dt>register</dt><dd><span style="color:var(--ch2)">${dd}</span> = ${d} → r${r} (r16 + ${d})</dd><dt>machine word</dt><dd>0x${word.toString(16).toUpperCase()}</dd>`}
+$('#eR').onchange=encText;$('#eK').oninput=encText;encText();
+const B={v:0x40,port:'F'};
+function bitsDraw(){$('#bits').innerHTML=[7,6,5,4,3,2,1,0].map(i=>`<button type="button" data-bit="${i}" class="${B.v>>i&1?'on':''}">bit ${i}</button>`).join('')+`<select id="bPort" aria-label="Port"><option${B.port==='A'?' selected':''}>A</option><option${B.port==='D'?' selected':''}>D</option><option${B.port==='F'?' selected':''}>F</option></select>`;
+  document.querySelectorAll('[data-bit]').forEach(b=>b.onclick=()=>{B.v^=1<<+b.dataset.bit;bitsDraw()});$('#bPort').onchange=e=>{B.port=e.target.value;bitsDraw()};
+  const hi=[7,6,5,4,3,2,1,0].filter(i=>B.v>>i&1).map(i=>`P${B.port}${i}`);
+  $('#bitCode').textContent=`ldi r20, ${bin(B.v)}   ; = ${hex(B.v)} = ${B.v}\nout VPORT${B.port}_OUT, r20\n; high: ${hi.length?hi.join(', '):'none'}`}
+bitsDraw();
+
+/* 3. Loop timing */
+function loopCyc(n,k){return n*(k+3)}
+function tText(){const n=Math.max(1,Math.min(255,+$('#tN').value||1)),k=Math.max(0,+$('#tK').value||0),clk=+$('#tClk').value;const D=loopCyc(n,k),W=2*D+6;
+  $('#tOut').innerHTML=`<dt>one delay (ldi + loop)</dt><dd>1 + N(k+1) + 2(N−1) + 1 = N(k+3) = <span class="hot">${D.toLocaleString()} cycles</span></dd><dt>time</dt><dd>${fmt(D/clk,'s',4)}</dd><dt>full buzzer wave</dt><dd>2 × ${D} + 6 = <span class="hot">${W.toLocaleString()} cycles</span></dd><dt>frequency</dt><dd class="hot">${clk.toLocaleString()} / ${W} = ${fmt(clk/W,'Hz',4)}${clk/W>20000?' (inaudible)':''}</dd>`;T.v=[n,k,D,W]}
+const T={v:[255,12,3825,7656]};['#tN','#tK','#tClk'].forEach(s=>$(s).addEventListener('input',tText));
+$('#tPre').onclick=()=>{$('#tN').value=10;$('#tK').value=1;$('#tClk').value='20000000';tText()};$('#tLab').onclick=()=>{$('#tN').value=255;$('#tK').value=12;$('#tClk').value='3333333';tText()};
+$('#tA').onclick=()=>{const clk=+$('#tClk').value;let best=[1e9,1,0];for(let n=1;n<=255;n++)for(let k=0;k<=200;k++){const f=clk/(2*loopCyc(n,k)+6);const e=Math.abs(f-440);if(e<best[0])best=[e,n,k]}$('#tN').value=best[1];$('#tK').value=best[2];tText()};tText();
+anim($('#cvLoop'),()=>{const cv=$('#cvLoop');const {ctx,w,h}=fit(cv);if(!w)return;const [n,k,D]=T.v;ctx.fillStyle=P.panel;ctx.fillRect(0,0,w,h);
+  const parts=[['ldi',1,P.muted],[`${n}×${k} nop`,n*k,P.accent],[`${n}× dec`,n,P.ch2],[`${n-1}× brne jump (2)`,2*(n-1),P.warn],['last brne (1)',1,P.ink]];let x=w*0.04;const bw=w*0.92,y=h*0.25,bh=h*0.22;
+  ctx.font=`11px ${P['f-mono']}`;parts.forEach(([l,c,col],i)=>{const ww=Math.max(2,bw*c/D);ctx.fillStyle=col;ctx.globalAlpha=.75;ctx.fillRect(x,y,ww,bh);ctx.globalAlpha=1;ctx.fillStyle=P.ink;ctx.textAlign='left';const ly=y+bh+16+i*15;ctx.fillStyle=col;ctx.fillRect(w*0.04,ly-9,10,10);ctx.fillStyle=P.ink;ctx.fillText(`${l}: ${c.toLocaleString()} cycles (${(c/D*100).toFixed(1)}%)`,w*0.04+16,ly);x+=ww});
+  ctx.fillStyle=P.muted;ctx.textAlign='left';ctx.fillText(`total ${D.toLocaleString()} cycles = N(k+3)`,w*0.04,y-8)});
+
+/* 4. Parts */
+const sv=b=>`<svg viewBox="0 0 160 40">${b}</svg>`;
+const PARTS=[
+ {id:'LS1',name:'Piezo buzzer',svg:sv('<circle cx="80" cy="18" r="16" fill="#23272d"/><circle cx="80" cy="18" r="3" fill="#555"/><line x1="72" y1="34" x2="72" y2="40" stroke="#9aa3ad" stroke-width="2"/><line x1="88" y1="34" x2="88" y2="40" stroke="#9aa3ad" stroke-width="2"/>'),how:'Round black can, 13.8 mm, two pins.',where:'<b>Solder side (back)</b>, marked LS1. Flip the board onto the component fixture (on its locating pins) and hold the buzzer from the side with a fingertip.',dir:'Install as marked.',why:'The “bender”: a piezo disk bends when PF6 drives it high and relaxes when low. Toggling it at an audio frequency makes sound.'},
+ {id:'R15',name:'1.1 kΩ',svg:resSVG([1,1,2,10]),how:'Brown, brown, red, gold.',where:'Component (front) side, near the word “Stony”.',dir:'Either way round.',why:'Current-limiting resistor in the buzzer drive circuit.'},
+ {id:'U1',name:'ATmega4809',svg:sv('<rect x="10" y="8" width="140" height="24" rx="2" fill="#23272d"/><path d="M10 16 a4 4 0 0 1 0 8" fill="#555"/><text x="80" y="24" text-anchor="middle" font-size="9" fill="#cfd5db">ATMEGA4809</text>'),how:'40-pin chip.',where:'Into the XU1 socket you soldered in Lab 6.',dir:'<b>Notch matches the notch on the board.</b> First bend each row of pins against the bench so they’re parallel, then press down with both thumbs. Check that no pin crumpled.',why:'The microcontroller: CPU, registers, 48 KB flash for your program, and the I/O ports.'},
+ {id:'D2–D9',name:'SMD LEDs',svg:sv('<rect x="60" y="12" width="40" height="16" rx="2" fill="#f5f0e6" stroke="#aaa"/><rect x="60" y="12" width="9" height="16" fill="#2e7d32"/>'),how:'Tiny 1206 rectangles, one end marked green or black.',where:'<b>Solder side</b>, so the light shines through the board.',dir:'<b>Polarised:</b> green/black end = cathode → pad with the “horns”.',why:'Six count seconds, one shows USB power, one shows the alarm is armed. You can ask the TAs to solder them after lab.'}];
+let curP='LS1';
+function renderParts(){$('#parts').innerHTML=PARTS.map(p=>`<button type="button" class="part${p.id===curP?' on':''}" data-p="${p.id}">${p.svg}<b>${p.id}</b><span>${p.name}</span></button>`).join('');
+  document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{curP=b.dataset.p;renderParts()});const p=PARTS.find(x=>x.id===curP);const pol=/Polarised|Notch/.test(p.dir);
+  $('#partDetail').innerHTML=`<h3>${p.id} · ${p.name} <span class="pill${pol?' warn':''}">${pol?'orientation matters':'no polarity'}</span></h3><dl class="readout"><dt>Recognise</dt><dd style="font-family:var(--f-body)">${p.how}</dd><dt>Location</dt><dd style="font-family:var(--f-body)">${p.where}</dd><dt>Orientation</dt><dd style="font-family:var(--f-body)">${p.dir}</dd><dt>Purpose</dt><dd style="font-family:var(--f-body)">${p.why}</dd></dl>`}
+renderParts();
+anim($('#cvLed'),t=>{const cv=$('#cvLed');const {ctx,w,h}=fit(cv);if(!w)return;ctx.fillStyle=P.panel;ctx.fillRect(0,0,w,h);const cy=h*0.62,pw=w*0.16,ph=h*0.3;
+  ctx.fillStyle='#c98b4a';const lx=w*0.28,rx=w*0.56;ctx.fillRect(lx,cy-ph/2,pw,ph);ctx.fillRect(rx,cy-ph/2,pw,ph);ctx.fillRect(lx-8,cy-ph/2,8,8);ctx.fillRect(lx-8,cy+ph/2-8,8,8);
+  ctx.strokeStyle=P.warn;ctx.lineWidth=2;ctx.strokeRect(lx-12,cy-ph/2-4,pw+16,ph+8);ctx.font=`11px ${P['f-mono']}`;ctx.fillStyle=P.warn;ctx.textAlign='center';ctx.fillText('cathode pad (horns)',lx+pw/2,cy+ph/2+18);ctx.fillStyle=P.muted;ctx.fillText('anode pad',rx+pw/2,cy+ph/2+18);
+  const k=reduce?1:clamp(((t%4)/2.5));const ly=lerp(h*0.12,cy-h*0.08,ease(k));const lw=rx+pw-lx-pw*0.3,lh=h*0.16;const L=lx+pw*0.15;
+  ctx.fillStyle='#f5f0e6';ctx.strokeStyle='#999';ctx.lineWidth=1;ctx.fillRect(L,ly,lw,lh);ctx.strokeRect(L,ly,lw,lh);ctx.fillStyle='#2e7d32';ctx.fillRect(L,ly,lw*0.16,lh);
+  ctx.fillStyle=P.ink;ctx.textAlign='left';ctx.fillText('green mark = cathode',L,ly-6)});
+
+/* 5. MPLAB steps */
+$('#mpSteps').innerHTML=['Plug in the fixture’s AC adapter; fixture switch OFF (LED dark).','USB cable from the fixture to the PC; board into the tray; fixture ON.','MPLAB X IDE → <b>File | New Project</b> → Microchip Embedded → Application Project(s) → Next.','Family: <b>8-bit AVR MCUs (XMega/Mega/Tiny)</b>. Device: <b>ATmega4809</b> (type 4809 to filter).','Tool: the <b>Snap-SN:…</b> entry. Next.','Compiler: expand <b>avrasm2</b> and pick it. Next.','Name and location (no spaces), Set as main project ✓, Finish.','Projects tab → right-click <b>Source Files</b> → New → Other → Assembler → <b>AssemblyFile.asm</b>.','Type the program. Labels like <span class="mono">loop:</span> start at the left margin.','<b>Build</b> (hammer). Fix any errors until it says BUILD SUCCESSFUL.','<b>Make and Program Device</b> (chip with green arrow). The code goes into flash.','Scope CH1 on <b>BUZ</b>, ground on the GND loop. Autoscale and measure the frequency.','Add the delay loops, rebuild, reprogram, measure again (now audible), capture the screen.','Fixture OFF, unplug USB and adapter, stow the fixture.'].map(s=>`<li>${s}</li>`).join('');
+
+requestAnimationFrame(loop);
+})();
+</script>
+
+</html>
