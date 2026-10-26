@@ -2,7 +2,7 @@
 
 **Interactive page:** https://cad281.github.io/ese123-lab7/
 
-All labs: [Lab 1: DC Power & Ohm's Law](https://cad281.github.io/ese123-lab1/) · [Lab 2: Digital Multimeter](https://cad281.github.io/ese123-lab2/) · [Lab 3: SPICE & Soldering](https://cad281.github.io/ese123-lab3/) · [Lab 4: Function Generator & Scope](https://cad281.github.io/ese123-lab4/) · [Lab 5: Capacitors & Scope](https://cad281.github.io/ese123-lab5/) · [Lab 6: Operational Amplifiers](https://cad281.github.io/ese123-lab6/) · [Lab 7: Assembly Language & Buzzer](https://cad281.github.io/ese123-lab7/)
+All labs: [⌂ Home](https://cad281.github.io/ese123-fall2026/) · [Lab 1: DC Power & Ohm's Law](https://cad281.github.io/ese123-lab1/) · [Lab 2: Digital Multimeter](https://cad281.github.io/ese123-lab2/) · [Lab 3: SPICE & Soldering](https://cad281.github.io/ese123-lab3/) · [Lab 4: Function Generator & Scope](https://cad281.github.io/ese123-lab4/) · [Lab 5: Capacitors & Scope](https://cad281.github.io/ese123-lab5/) · [Lab 6: Operational Amplifiers](https://cad281.github.io/ese123-lab6/) · [Lab 7: Assembly Language & Buzzer](https://cad281.github.io/ese123-lab7/)
 
 A TA-written guide for ESE 123 students: **what** you do in Lab 7, **why** it matters and **how** to do it. The interactive page runs the handout's assembly programs in a step-by-step microcontroller simulator, shows the buzzer pin on a scope, plays the tone, encodes LDI into machine code, and counts delay-loop cycles.
 
